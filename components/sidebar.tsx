@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
+import { APP_VERSION } from '@/lib/version';
 
 const NAV = [
   { href: '/', label: 'Home', icon: '⊞' },
@@ -98,6 +99,10 @@ export default function Sidebar() {
             {user?.emailAddresses?.[0]?.emailAddress || ''}
           </div>
         </div>
+      </div>
+
+      <div style={{ padding: '8px 4px 0', fontSize: 10, color: 'var(--muted2)', textAlign: 'center', letterSpacing: '0.4px' }}>
+        v{APP_VERSION}
       </div>
     </aside>
   );

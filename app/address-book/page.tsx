@@ -14,6 +14,22 @@ export default function AddressBookPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<Address> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  async function importLegacy() {
+    if (!confirm('Import ~997 contacts from the legacy FedEx address book? This adds to your existing contacts (no duplicates check).')) return;
+    setImporting(true);
+    try {
+      const res = await fetch('/api/addresses/import', { method: 'POST' });
+      const data = await res.json();
+      alert(`Imported ${data.inserted} contacts.${data.failed ? ` (${data.failed} failed)` : ''}`);
+      load();
+    } catch {
+      alert('Import failed. Check console.');
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,7 +70,12 @@ export default function AddressBookPage() {
           <div className="page-title">Address Book</div>
           <div className="page-sub">{addresses.length} contacts</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing({})}>+ Add Contact</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={importLegacy} disabled={importing}>
+            {importing ? 'Importing...' : '⤓ Import Legacy'}
+          </button>
+          <button className="btn btn-primary" onClick={() => setEditing({})}>+ Add Contact</button>
+        </div>
       </div>
       <div className="content">
         <div style={{ marginBottom: 16 }}>
