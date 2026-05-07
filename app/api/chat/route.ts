@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   const tools = {
     search_addresses: {
       description: 'Search the address book by partial name or company name.',
-      parameters: z.object({ query: z.string() }),
+      inputSchema: z.object({ query: z.string() }),
       execute: async (params: { query: string }) => {
         const { data } = await supabaseAdmin.from('addresses').select('*')
           .eq('user_id', userId)
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
 
     list_addresses: {
       description: 'List all contacts in the address book.',
-      parameters: z.object({}),
+      inputSchema: z.object({}),
       execute: async () => {
         const { data } = await supabaseAdmin.from('addresses').select('*').eq('user_id', userId).order('name');
         return { contacts: data || [] };
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 
     save_address: {
       description: 'Save or update a contact in the address book.',
-      parameters: contactFields,
+      inputSchema: contactFields,
       execute: async (params: z.infer<typeof contactFields>) => {
         const now = new Date().toISOString();
         if (params.isDefault) {
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
 
     get_rates: {
       description: 'Fetch FedEx shipping rates for given shipper, recipient, and package details.',
-      parameters: z.object({
+      inputSchema: z.object({
         shipper:    z.object({ street: z.string(), city: z.string(), state: z.string().optional(), zip: z.string().optional(), country: z.string().optional() }),
         recipient:  z.object({ street: z.string(), city: z.string(), state: z.string().optional(), zip: z.string().optional(), country: z.string().optional() }),
         packages:   z.array(packageFields),
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
 
     create_shipment: {
       description: 'Create a FedEx shipment and generate a shipping label. Only call AFTER the user explicitly confirms.',
-      parameters: z.object({
+      inputSchema: z.object({
         shipper:     contactFields,
         recipient:   contactFields,
         packages:    z.array(packageFields),
@@ -220,7 +220,7 @@ export async function POST(req: Request) {
 
     track_shipment: {
       description: 'Get tracking status for a FedEx tracking number.',
-      parameters: z.object({ trackingNumber: z.string() }),
+      inputSchema: z.object({ trackingNumber: z.string() }),
       execute: async (params: { trackingNumber: string }) => {
         const data = await fedexRequest(env, '/track/v1/trackingnumbers', {
           includeDetailedScans: true,
@@ -237,7 +237,7 @@ export async function POST(req: Request) {
 
     cancel_shipment: {
       description: 'Cancel a FedEx shipment by tracking number.',
-      parameters: z.object({ trackingNumber: z.string() }),
+      inputSchema: z.object({ trackingNumber: z.string() }),
       execute: async (params: { trackingNumber: string }) => {
         const token = await getFedexToken(env);
         const fedexBase = env === 'production' ? 'https://apis.fedex.com' : 'https://apis-sandbox.fedex.com';
