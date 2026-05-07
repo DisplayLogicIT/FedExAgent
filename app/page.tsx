@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import Link from 'next/link';
+import DefaultShipperCard from '@/components/default-shipper-card';
 
 export default async function HomePage() {
   const { userId } = await auth();
@@ -26,6 +27,8 @@ export default async function HomePage() {
       </div>
 
       <div className="content">
+        <DefaultShipperCard />
+
         <div className="stat-grid">
           <div className="stat-card">
             <div className="stat-label">Total Shipments</div>
