@@ -8,7 +8,10 @@ export default function FedExPage() {
   const [env, setEnv] = useState('sandbox');
   const [input, setInput] = useState('');
   const [panelClosedFor, setPanelClosedFor] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<{ name: string; mediaType: string; url: string }[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('fedex_env');
@@ -28,11 +31,44 @@ export default function FedExPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  async function readFileAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function ingestFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (!files.length) {
+      alert('Only image files are supported right now (PNG, JPG, etc.). PDF support coming soon.');
+      return;
+    }
+    const newAttachments = await Promise.all(files.map(async f => ({
+      name: f.name,
+      mediaType: f.type,
+      url: await readFileAsDataUrl(f),
+    })));
+    setAttachments(prev => [...prev, ...newAttachments]);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    sendMessage({ text: input });
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
+    if (attachments.length === 0) {
+      sendMessage({ text: input || '' });
+    } else {
+      sendMessage({
+        parts: [
+          ...(input.trim() ? [{ type: 'text' as const, text: input }] : []),
+          ...attachments.map(a => ({ type: 'file' as const, url: a.url, mediaType: a.mediaType })),
+        ],
+      });
+    }
     setInput('');
+    setAttachments([]);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -123,16 +159,82 @@ export default function FedExPage() {
               <div ref={bottomRef} />
             </div>
 
-            <form onSubmit={handleSubmit} className="chat-input-row">
-              <textarea
-                className="chat-input"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Who are you shipping to? Or ask anything..."
-                rows={1}
+            <form
+              onSubmit={handleSubmit}
+              className="chat-input-row"
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                if (e.dataTransfer.files?.length) ingestFiles(e.dataTransfer.files);
+              }}
+              style={{
+                position: 'relative',
+                outline: dragActive ? '2px dashed var(--accent2)' : 'none',
+                outlineOffset: -4,
+                borderRadius: 12,
+              }}
+            >
+              {dragActive && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'rgba(255,98,0,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  pointerEvents: 'none', borderRadius: 12, fontWeight: 600, color: 'var(--accent2)',
+                  zIndex: 5,
+                }}>
+                  Drop image to attach
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+                {attachments.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '4px 0' }}>
+                    {attachments.map((a, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '4px 8px', borderRadius: 6,
+                        background: 'var(--surface2)', border: '1px solid var(--border)',
+                        fontSize: 12,
+                      }}>
+                        <img src={a.url} alt="" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3 }} />
+                        <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  className="chat-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Who are you shipping to? Or drop an image..."
+                  rows={1}
+                />
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => { if (e.target.files) ingestFiles(e.target.files); e.target.value = ''; }}
               />
-              <button type="submit" className="btn btn-primary" disabled={isLoading || !input.trim()}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach image"
+                style={{ padding: '0 12px' }}
+              >📎</button>
+              <button type="submit" className="btn btn-primary" disabled={isLoading || (!input.trim() && attachments.length === 0)}>
                 Send
               </button>
             </form>
