@@ -5,6 +5,7 @@ import { DefaultChatTransport } from 'ai';
 import { useState, useEffect, useRef } from 'react';
 
 export default function FedExPage() {
+  const [env, setEnv] = useState('sandbox');
   const [input, setInput] = useState('');
   const [panelClosedFor, setPanelClosedFor] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<{ name: string; mediaType: string; url: string }[]>([]);
@@ -12,8 +13,16 @@ export default function FedExPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const stored = localStorage.getItem('fedex_env');
+    if (stored) setEnv(stored);
+    const handler = (e: Event) => setEnv((e as CustomEvent).detail);
+    window.addEventListener('envchange', handler);
+    return () => window.removeEventListener('envchange', handler);
+  }, []);
+
   const { messages, status, sendMessage } = useChat({
-    transport: new DefaultChatTransport({ api: '/api/chat', body: { env: 'production' } }),
+    transport: new DefaultChatTransport({ api: '/api/chat', body: { env } }),
   });
 
   const isLoading = status === 'submitted' || status === 'streaming';
@@ -100,7 +109,7 @@ export default function FedExPage() {
         <div>
           <div className="page-title">FedEx Shipping Agent</div>
           <div className="page-sub">
-            <span className="chip production">Production · Real Labels</span>
+            <span className={`chip ${env}`}>{env === 'sandbox' ? 'Sandbox · Test labels for FedEx validation' : 'Production · Pending FedEx approval'}</span>
           </div>
         </div>
       </div>

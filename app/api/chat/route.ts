@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { messages, env = 'production' } = await req.json();
+  const { messages, env = 'sandbox' } = await req.json();
 
   const { data: defaultShipper } = await supabaseAdmin
     .from('addresses').select('*').eq('user_id', userId).eq('is_default', true).single();
