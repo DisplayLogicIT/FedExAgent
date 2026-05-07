@@ -48,9 +48,9 @@ export default async function HomePage() {
           <div className="stat-card">
             <div className="stat-label">Environment</div>
             <div className="stat-value" style={{ fontSize: 16, marginTop: 4 }}>
-              <span className="chip sandbox">Sandbox</span>
+              <span className="chip production">Production</span>
             </div>
-            <div className="stat-sub">Toggle in sidebar</div>
+            <div className="stat-sub">Real labels · Real charges</div>
           </div>
         </div>
 

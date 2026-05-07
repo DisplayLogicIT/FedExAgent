@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { APP_VERSION } from '@/lib/version';
 
 const NAV = [
@@ -23,18 +23,10 @@ const NAV3 = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
-  const [env, setEnv] = useState<'sandbox' | 'production'>('sandbox');
 
   useEffect(() => {
-    const stored = localStorage.getItem('fedex_env');
-    if (stored === 'production' || stored === 'sandbox') setEnv(stored);
+    localStorage.setItem('fedex_env', 'production');
   }, []);
-
-  function toggleEnv(e: 'sandbox' | 'production') {
-    setEnv(e);
-    localStorage.setItem('fedex_env', e);
-    window.dispatchEvent(new CustomEvent('envchange', { detail: e }));
-  }
 
   const firstName = user?.firstName || 'User';
   const initials = (user?.firstName?.[0] || '') + (user?.lastName?.[0] || '');
@@ -80,14 +72,6 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-spacer" />
-
-      <div style={{ padding: '0 2px' }}>
-        <div style={{ fontSize: 10, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Environment</div>
-        <div className="env-pill">
-          <button className={env === 'sandbox' ? 'on' : ''} onClick={() => toggleEnv('sandbox')}>Sandbox</button>
-          <button className={env === 'production' ? 'on' : ''} onClick={() => toggleEnv('production')}>Production</button>
-        </div>
-      </div>
 
       <div className="user-chip">
         <UserButton />
