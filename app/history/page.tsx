@@ -64,8 +64,8 @@ export default async function HistoryPage() {
                     <td>
                       {s.label_b64 ? (
                         <a
-                          href={`data:image/png;base64,${s.label_b64}`}
-                          download={`label-${s.tracking}.png`}
+                          href={`data:text/plain;base64,${s.label_b64}`}
+                          download={`label-${s.tracking}.zpl`}
                           className="btn btn-ghost btn-sm"
                         >
                           ⬇
