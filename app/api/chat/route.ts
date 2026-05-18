@@ -177,7 +177,7 @@ export async function POST(req: Request) {
             pickupType: params.pickupType || 'DROPOFF_AT_FEDEX_LOCATION',
             serviceType: params.serviceType,
             packagingType: 'YOUR_PACKAGING',
-            labelSpecification: { labelFormatType: 'COMMON2D', imageType: labelFormat === 'thermal' ? 'ZPLII' : 'PNG', labelStockType: 'PAPER_4X6' },
+            labelSpecification: { labelFormatType: 'COMMON2D', imageType: labelFormat === 'thermal' ? 'ZPLII' : 'PDF', labelStockType: 'PAPER_4X6' },
             requestedPackageLineItems: params.packages.map((pkg, i) => ({
               sequenceNumber: i + 1,
               weight: { value: pkg.weight, units: pkg.weightUnit || 'LB' },
@@ -196,7 +196,7 @@ export async function POST(req: Request) {
         const tracking = shipment?.masterTrackingNumber || shipment?.pieceResponses?.[0]?.trackingNumber || 'N/A';
         const encodedLabel = shipment?.pieceResponses?.[0]?.packageDocuments?.[0]?.encodedLabel;
         const isThermal = labelFormat === 'thermal';
-        // Thermal: decode base64 → raw ZPL text. Laser: keep as base64 PNG.
+        // Thermal: decode base64 → raw ZPL text. Laser: keep as base64 PDF.
         const labelZpl = (isThermal && encodedLabel) ? Buffer.from(encodedLabel, 'base64').toString('utf-8') : null;
         const labelB64 = (!isThermal && encodedLabel) ? encodedLabel : null;
 

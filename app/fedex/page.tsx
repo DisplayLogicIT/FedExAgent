@@ -110,10 +110,14 @@ export default function FedExPage() {
       link.click();
       URL.revokeObjectURL(url);
     } else if (labelB64) {
+      const bytes = Uint8Array.from(atob(labelB64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = `data:image/png;base64,${labelB64}`;
-      link.download = `label-${tracking || 'fedex'}.png`;
+      link.href = url;
+      link.download = `label-${tracking || 'fedex'}.pdf`;
       link.click();
+      URL.revokeObjectURL(url);
     }
   }
 
@@ -124,10 +128,11 @@ export default function FedExPage() {
 
   function printLabel() {
     if (!labelB64) return;
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`<html><head><title>Label ${tracking || ''}</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style></head><body><img src="data:image/png;base64,${labelB64}" onload="window.print()" /></body></html>`);
-    w.document.close();
+    const bytes = Uint8Array.from(atob(labelB64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) w.onload = () => { w.print(); URL.revokeObjectURL(url); };
   }
 
   return (
@@ -320,15 +325,18 @@ export default function FedExPage() {
               </>
             ) : (
               <>
-                <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', background: 'var(--surface2)' }}>
-                  <img
-                    src={`data:image/png;base64,${labelB64}`}
-                    alt="Shipping label"
-                    style={{ maxWidth: '100%', height: 'auto', borderRadius: 6, boxShadow: '0 4px 24px rgba(0,0,0,0.4)', background: '#fff' }}
-                  />
+                <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Laser Printer · PDF</div>
+                    <div style={{ fontSize: 28, marginBottom: 4 }}>📄</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>PDF Label Ready</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                      Standard PDF for laser and inkjet printers. Download and print on 4×6 label stock or standard paper.
+                    </div>
+                  </div>
                 </div>
                 <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download PNG</button>
+                  <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download PDF</button>
                   <button className="btn btn-ghost" onClick={printLabel} style={{ flex: 1 }}>⎙ Print</button>
                 </div>
               </>
