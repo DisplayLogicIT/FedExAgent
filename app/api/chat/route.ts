@@ -165,6 +165,7 @@ export async function POST(req: Request) {
       execute: async (params: { shipper: z.infer<typeof contactFields>; recipient: z.infer<typeof contactFields>; packages: z.infer<typeof packageFields>[]; serviceType: string; pickupType?: string }) => {
         const body = {
           labelResponseOptions: 'LABEL',
+          accountNumber: { value: process.env.FEDEX_ACCOUNT_NUMBER },
           requestedShipment: {
             shipper: {
               contact: { personName: params.shipper.name || '', companyName: params.shipper.company || '', phoneNumber: params.shipper.phone || '', emailAddress: params.shipper.email || '' },
@@ -174,6 +175,14 @@ export async function POST(req: Request) {
               contact: { personName: params.recipient.name || '', companyName: params.recipient.company || '', phoneNumber: params.recipient.phone || '', emailAddress: params.recipient.email || '' },
               address: { ...buildFedexAddress(params.recipient), residential: params.recipient.residential || false },
             }],
+            shippingChargesPayment: {
+              paymentType: 'SENDER',
+              payor: {
+                responsibleParty: {
+                  accountNumber: { value: process.env.FEDEX_ACCOUNT_NUMBER },
+                },
+              },
+            },
             pickupType: params.pickupType || 'DROPOFF_AT_FEDEX_LOCATION',
             serviceType: params.serviceType,
             packagingType: 'YOUR_PACKAGING',
@@ -184,7 +193,6 @@ export async function POST(req: Request) {
               dimensions: pkg.length ? { length: pkg.length, width: pkg.width, height: pkg.height, units: pkg.dimUnit || 'IN' } : undefined,
             })),
           },
-          accountNumber: { value: process.env.FEDEX_ACCOUNT_NUMBER },
         };
 
         const data = await fedexRequest(env, '/ship/v1/shipments', body);
