@@ -21,7 +21,7 @@ Your workflow for creating a shipment:
 3. Call get_rates to fetch available services and prices.
 4. Present the rate options clearly, then ask the user to confirm which service they want.
 5. Only AFTER the user explicitly confirms, call create_shipment.
-6. When the label is created, tell the user the tracking number and confirm the label is ready to download.
+6. When the label is created, tell the user the tracking number and confirm the ZPL label is ready to download for their thermal printer.
 
 You can also: track shipments, save/update contacts, list and search the address book, cancel shipments.
 
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
     },
 
     create_shipment: {
-      description: 'Create a FedEx shipment and generate a shipping label. Only call AFTER the user explicitly confirms.',
+      description: 'Create a FedEx shipment and generate a ZPL shipping label. Only call AFTER the user explicitly confirms.',
       inputSchema: z.object({
         shipper:     contactFields,
         recipient:   contactFields,
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
             pickupType: params.pickupType || 'DROPOFF_AT_FEDEX_LOCATION',
             serviceType: params.serviceType,
             packagingType: 'YOUR_PACKAGING',
-            labelSpecification: { labelFormatType: 'COMMON2D', imageType: 'PNG', labelStockType: 'PAPER_4X6' },
+            labelSpecification: { labelFormatType: 'COMMON2D', imageType: 'ZPLII', labelStockType: 'STOCK_4X6' },
             requestedPackageLineItems: params.packages.map((pkg, i) => ({
               sequenceNumber: i + 1,
               weight: { value: pkg.weight, units: pkg.weightUnit || 'LB' },
@@ -202,7 +202,7 @@ export async function POST(req: Request) {
 
         const shipment = data.output.transactionShipments?.[0];
         const tracking = shipment?.masterTrackingNumber || shipment?.pieceResponses?.[0]?.trackingNumber || 'N/A';
-        const labelB64 = shipment?.pieceResponses?.[0]?.packageDocuments?.[0]?.encodedLabel;
+        const labelZpl = shipment?.pieceResponses?.[0]?.packageDocuments?.[0]?.encodedLabel;
 
         await supabaseAdmin.from('shipments').insert({
           id: `ship-${Date.now()}`,
@@ -213,15 +213,15 @@ export async function POST(req: Request) {
           service: params.serviceType,
           service_name: SERVICE_NAMES[params.serviceType] || params.serviceType,
           cost: null,
-          label_b64: labelB64 || null,
+          label_b64: labelZpl || null,
           created_at: new Date().toISOString(),
         });
 
         return {
           success: true,
           trackingNumber: tracking,
-          message: `Shipment created. Tracking: ${tracking}`,
-          labelB64: labelB64 || null,
+          message: `Shipment created. Tracking: ${tracking}. ZPL label is ready to download for your thermal printer.`,
+          labelZpl: labelZpl || null,
           recipientName: params.recipient.name || '',
           toCity: `${params.recipient.city || ''}, ${params.recipient.state || ''}`,
         };
