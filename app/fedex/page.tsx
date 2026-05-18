@@ -78,29 +78,23 @@ export default function FedExPage() {
     }
   }
 
-  type LabelOutput = { labelB64?: string; trackingNumber?: string; recipientName?: string; toCity?: string };
+  type LabelOutput = { labelZpl?: string; trackingNumber?: string; recipientName?: string; toCity?: string };
   const latestLabel = messages.flatMap(m =>
-    (m.parts || []).filter((p: { type: string; output?: unknown }) => p.type === 'tool-create_shipment' && (p as { output?: LabelOutput }).output?.labelB64)
+    (m.parts || []).filter((p: { type: string; output?: unknown }) => p.type === 'tool-create_shipment' && (p as { output?: LabelOutput }).output?.labelZpl)
   ).slice(-1)[0] as { output?: LabelOutput } | undefined;
 
-  const labelB64 = latestLabel?.output?.labelB64;
+  const labelZpl = latestLabel?.output?.labelZpl;
   const tracking = latestLabel?.output?.trackingNumber;
-  const showPanel = !!labelB64 && panelClosedFor !== tracking;
+  const recipientName = latestLabel?.output?.recipientName;
+  const toCity = latestLabel?.output?.toCity;
+  const showPanel = !!labelZpl && panelClosedFor !== tracking;
 
   function downloadLabel() {
-    if (!labelB64) return;
+    if (!labelZpl) return;
     const link = document.createElement('a');
-    link.href = `data:image/png;base64,${labelB64}`;
-    link.download = `label-${tracking || 'fedex'}.png`;
+    link.href = `data:text/plain;base64,${labelZpl}`;
+    link.download = `label-${tracking || 'fedex'}.zpl`;
     link.click();
-  }
-
-  function printLabel() {
-    if (!labelB64) return;
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`<html><head><title>Label ${tracking || ''}</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style></head><body><img src="data:image/png;base64,${labelB64}" onload="window.print()" /></body></html>`);
-    w.document.close();
   }
 
   return (
@@ -243,7 +237,7 @@ export default function FedExPage() {
 
         {showPanel && (
           <aside style={{
-            width: 420,
+            width: 360,
             borderLeft: '1px solid var(--border)',
             background: 'var(--surface)',
             display: 'flex',
@@ -253,9 +247,7 @@ export default function FedExPage() {
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>Label Ready</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                  Tracking: <span className="mono">{tracking}</span>
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>ZPL · Thermal printer format</div>
               </div>
               <button
                 className="btn btn-ghost btn-sm"
@@ -267,17 +259,29 @@ export default function FedExPage() {
               </button>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', background: 'var(--surface2)' }}>
-              <img
-                src={`data:image/png;base64,${labelB64}`}
-                alt="Shipping label"
-                style={{ maxWidth: '100%', height: 'auto', borderRadius: 6, boxShadow: '0 4px 24px rgba(0,0,0,0.4)', background: '#fff' }}
-              />
+            <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface2)' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 18 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Tracking Number</div>
+                <div className="mono" style={{ fontSize: 17, fontWeight: 700, letterSpacing: '0.5px' }}>{tracking}</div>
+              </div>
+
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 18 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Ship To</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{recipientName || '—'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>{toCity || '—'}</div>
+              </div>
+
+              <div style={{ background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 10, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 24 }}>🖨</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>ZPL Label Generated</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>Download and send to your Zebra or thermal printer</div>
+                </div>
+              </div>
             </div>
 
-            <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download PNG</button>
-              <button className="btn btn-ghost" onClick={printLabel} style={{ flex: 1 }}>⎙ Print</button>
+            <div style={{ padding: 14, borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-primary" onClick={downloadLabel} style={{ width: '100%' }}>⬇ Download ZPL Label</button>
             </div>
           </aside>
         )}
