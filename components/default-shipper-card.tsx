@@ -21,6 +21,7 @@ const EMPTY: Shipper = { name: '', company: '', phone: '', email: '', street: ''
 export default function DefaultShipperCard() {
   const [shipper, setShipper] = useState<Shipper | null>(null);
   const [editing, setEditing] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [draft, setDraft] = useState<Shipper>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,7 +31,12 @@ export default function DefaultShipperCard() {
     const res = await fetch('/api/addresses').then(r => r.json());
     const def = Array.isArray(res) ? res.find((a: { is_default?: boolean }) => a.is_default) : null;
     setShipper(def || null);
-    if (!def) setEditing(true);
+    if (!def) {
+      setEditing(true);
+      setCollapsed(false);
+    } else {
+      setCollapsed(true);
+    }
     setLoading(false);
   }
 
@@ -39,6 +45,7 @@ export default function DefaultShipperCard() {
   function startEdit() {
     setDraft(shipper ? { ...EMPTY, ...shipper } : EMPTY);
     setEditing(true);
+    setCollapsed(false);
   }
 
   async function save(e: React.FormEvent) {
@@ -62,14 +69,29 @@ export default function DefaultShipperCard() {
 
   return (
     <div className="card" style={{ marginBottom: 18 }}>
-      <div className="card-title">
-        <span>Default Shipper {shipper && !editing && <span className="chip ok" style={{ marginLeft: 8, fontSize: 10 }}>Saved</span>}</span>
-        {shipper && !editing && (
-          <button className="btn btn-ghost btn-sm" onClick={startEdit}>Edit</button>
-        )}
+      <div className="card-title" style={{ cursor: shipper && !editing ? 'pointer' : 'default' }} onClick={() => { if (shipper && !editing) setCollapsed(c => !c); }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          Default Shipper
+          {shipper && !editing && (
+            <span className="chip ok" style={{ fontSize: 10 }}>Saved</span>
+          )}
+          {shipper && !editing && collapsed && (
+            <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>
+              — {shipper.name}{shipper.company ? `, ${shipper.company}` : ''}
+            </span>
+          )}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {shipper && !editing && (
+            <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); startEdit(); }}>Edit</button>
+          )}
+          {shipper && !editing && (
+            <span style={{ color: 'var(--muted)', fontSize: 12, userSelect: 'none' }}>{collapsed ? '▼' : '▲'}</span>
+          )}
+        </span>
       </div>
 
-      {!editing && shipper && (
+      {!editing && shipper && !collapsed && (
         <div style={{ padding: '4px 4px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
           <div>
             <div style={{ fontWeight: 600 }}>{shipper.name}</div>
@@ -144,7 +166,7 @@ export default function DefaultShipperCard() {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
             {shipper && (
-              <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setEditing(false); setCollapsed(true); }}>Cancel</button>
             )}
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Saving...' : (shipper ? 'Update Shipper' : 'Save as Default Shipper')}
