@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function FedExPage() {
   const [env, setEnv] = useState('sandbox');
+  const [labelFormat, setLabelFormat] = useState<'thermal' | 'laser'>('thermal');
   const [input, setInput] = useState('');
   const [panelClosedFor, setPanelClosedFor] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<{ name: string; mediaType: string; url: string }[]>([]);
@@ -14,15 +15,23 @@ export default function FedExPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('fedex_env');
-    if (stored) setEnv(stored);
-    const handler = (e: Event) => setEnv((e as CustomEvent).detail);
-    window.addEventListener('envchange', handler);
-    return () => window.removeEventListener('envchange', handler);
+    const storedEnv = localStorage.getItem('fedex_env');
+    if (storedEnv) setEnv(storedEnv);
+    const storedFormat = localStorage.getItem('fedex_label_format') as 'thermal' | 'laser' | null;
+    if (storedFormat) setLabelFormat(storedFormat);
+
+    const handleEnv = (e: Event) => setEnv((e as CustomEvent).detail);
+    const handleFormat = (e: Event) => setLabelFormat((e as CustomEvent).detail);
+    window.addEventListener('envchange', handleEnv);
+    window.addEventListener('labelformatchange', handleFormat);
+    return () => {
+      window.removeEventListener('envchange', handleEnv);
+      window.removeEventListener('labelformatchange', handleFormat);
+    };
   }, []);
 
   const { messages, status, sendMessage } = useChat({
-    transport: new DefaultChatTransport({ api: '/api/chat', body: { env } }),
+    transport: new DefaultChatTransport({ api: '/api/chat', body: { env, labelFormat } }),
   });
 
   const isLoading = status === 'submitted' || status === 'streaming';
@@ -78,21 +87,39 @@ export default function FedExPage() {
     }
   }
 
-  type LabelOutput = { labelB64?: string; trackingNumber?: string; recipientName?: string; toCity?: string };
+  type LabelOutput = { labelZpl?: string; labelB64?: string; trackingNumber?: string; recipientName?: string; toCity?: string };
   const latestLabel = messages.flatMap(m =>
-    (m.parts || []).filter((p: { type: string; output?: unknown }) => p.type === 'tool-create_shipment' && (p as { output?: LabelOutput }).output?.labelB64)
+    (m.parts || []).filter((p: { type: string; output?: unknown }) => {
+      const out = (p as { output?: LabelOutput }).output;
+      return p.type === 'tool-create_shipment' && (out?.labelZpl || out?.labelB64);
+    })
   ).slice(-1)[0] as { output?: LabelOutput } | undefined;
 
+  const labelZpl = latestLabel?.output?.labelZpl;
   const labelB64 = latestLabel?.output?.labelB64;
   const tracking = latestLabel?.output?.trackingNumber;
-  const showPanel = !!labelB64 && panelClosedFor !== tracking;
+  const showPanel = !!(labelZpl || labelB64) && panelClosedFor !== tracking;
 
   function downloadLabel() {
-    if (!labelB64) return;
-    const link = document.createElement('a');
-    link.href = `data:image/png;base64,${labelB64}`;
-    link.download = `label-${tracking || 'fedex'}.png`;
-    link.click();
+    if (labelZpl) {
+      const blob = new Blob([labelZpl], { type: 'application/x-zebra-zpl' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `label-${tracking || 'fedex'}.zpl`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (labelB64) {
+      const link = document.createElement('a');
+      link.href = `data:image/png;base64,${labelB64}`;
+      link.download = `label-${tracking || 'fedex'}.png`;
+      link.click();
+    }
+  }
+
+  function copyZpl() {
+    if (!labelZpl) return;
+    navigator.clipboard.writeText(labelZpl).then(() => alert('ZPL copied to clipboard'));
   }
 
   function printLabel() {
@@ -243,7 +270,7 @@ export default function FedExPage() {
 
         {showPanel && (
           <aside style={{
-            width: 420,
+            width: 380,
             borderLeft: '1px solid var(--border)',
             background: 'var(--surface)',
             display: 'flex',
@@ -252,7 +279,7 @@ export default function FedExPage() {
           }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Label Ready</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>ZPL Label Ready</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                   Tracking: <span className="mono">{tracking}</span>
                 </div>
@@ -267,18 +294,45 @@ export default function FedExPage() {
               </button>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', background: 'var(--surface2)' }}>
-              <img
-                src={`data:image/png;base64,${labelB64}`}
-                alt="Shipping label"
-                style={{ maxWidth: '100%', height: 'auto', borderRadius: 6, boxShadow: '0 4px 24px rgba(0,0,0,0.4)', background: '#fff' }}
-              />
-            </div>
-
-            <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download PNG</button>
-              <button className="btn btn-ghost" onClick={printLabel} style={{ flex: 1 }}>⎙ Print</button>
-            </div>
+            {labelZpl ? (
+              <>
+                <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Thermal Printer · ZPL II</div>
+                    <div style={{ fontSize: 28, marginBottom: 4 }}>🖨️</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>ZPL II Label Ready</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                      Native ZPL script for Zebra and compatible thermal printers. Download and send directly to your printer for perfect 4×6 label stock output.
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)', maxHeight: 160, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                    {labelZpl.slice(0, 400)}{labelZpl.length > 400 ? '\n…' : ''}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
+                    <strong style={{ color: 'var(--text)' }}>To print:</strong><br />
+                    Copy the .zpl file to your Zebra printer&apos;s shared folder, or open in ZebraDesigner.
+                  </div>
+                </div>
+                <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+                  <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download .ZPL</button>
+                  <button className="btn btn-ghost" onClick={copyZpl} style={{ flex: 1 }}>⎘ Copy ZPL</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ flex: 1, overflow: 'auto', padding: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', background: 'var(--surface2)' }}>
+                  <img
+                    src={`data:image/png;base64,${labelB64}`}
+                    alt="Shipping label"
+                    style={{ maxWidth: '100%', height: 'auto', borderRadius: 6, boxShadow: '0 4px 24px rgba(0,0,0,0.4)', background: '#fff' }}
+                  />
+                </div>
+                <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+                  <button className="btn btn-primary" onClick={downloadLabel} style={{ flex: 1 }}>⬇ Download PNG</button>
+                  <button className="btn btn-ghost" onClick={printLabel} style={{ flex: 1 }}>⎙ Print</button>
+                </div>
+              </>
+            )}
           </aside>
         )}
       </div>

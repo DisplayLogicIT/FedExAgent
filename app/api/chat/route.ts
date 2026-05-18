@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { messages, env = 'sandbox' } = await req.json();
+  const { messages, env = 'sandbox', labelFormat = 'thermal' } = await req.json();
 
   const { data: defaultShipper } = await supabaseAdmin
     .from('addresses').select('*').eq('user_id', userId).eq('is_default', true).single();
@@ -177,7 +177,7 @@ export async function POST(req: Request) {
             pickupType: params.pickupType || 'DROPOFF_AT_FEDEX_LOCATION',
             serviceType: params.serviceType,
             packagingType: 'YOUR_PACKAGING',
-            labelSpecification: { labelFormatType: 'COMMON2D', imageType: 'PNG', labelStockType: 'PAPER_4X6' },
+            labelSpecification: { labelFormatType: 'COMMON2D', imageType: labelFormat === 'thermal' ? 'ZPLII' : 'PNG', labelStockType: 'PAPER_4X6' },
             requestedPackageLineItems: params.packages.map((pkg, i) => ({
               sequenceNumber: i + 1,
               weight: { value: pkg.weight, units: pkg.weightUnit || 'LB' },
@@ -194,7 +194,11 @@ export async function POST(req: Request) {
 
         const shipment = data.output.transactionShipments?.[0];
         const tracking = shipment?.masterTrackingNumber || shipment?.pieceResponses?.[0]?.trackingNumber || 'N/A';
-        const labelB64 = shipment?.pieceResponses?.[0]?.packageDocuments?.[0]?.encodedLabel;
+        const encodedLabel = shipment?.pieceResponses?.[0]?.packageDocuments?.[0]?.encodedLabel;
+        const isThermal = labelFormat === 'thermal';
+        // Thermal: decode base64 → raw ZPL text. Laser: keep as base64 PNG.
+        const labelZpl = (isThermal && encodedLabel) ? Buffer.from(encodedLabel, 'base64').toString('utf-8') : null;
+        const labelB64 = (!isThermal && encodedLabel) ? encodedLabel : null;
 
         await supabaseAdmin.from('shipments').insert({
           id: `ship-${Date.now()}`,
@@ -205,7 +209,7 @@ export async function POST(req: Request) {
           service: params.serviceType,
           service_name: SERVICE_NAMES[params.serviceType] || params.serviceType,
           cost: null,
-          label_b64: labelB64 || null,
+          label_b64: labelZpl || labelB64 || null,
           created_at: new Date().toISOString(),
         });
 
@@ -213,6 +217,7 @@ export async function POST(req: Request) {
           success: true,
           trackingNumber: tracking,
           message: `Shipment created. Tracking: ${tracking}`,
+          labelZpl: labelZpl || null,
           labelB64: labelB64 || null,
           recipientName: params.recipient.name || '',
           toCity: `${params.recipient.city || ''}, ${params.recipient.state || ''}`,

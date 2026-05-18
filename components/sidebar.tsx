@@ -24,16 +24,25 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const [env, setEnv] = useState<'sandbox' | 'production'>('sandbox');
+  const [labelFormat, setLabelFormat] = useState<'thermal' | 'laser'>('thermal');
 
   useEffect(() => {
-    const stored = localStorage.getItem('fedex_env');
-    if (stored === 'production' || stored === 'sandbox') setEnv(stored);
+    const storedEnv = localStorage.getItem('fedex_env');
+    if (storedEnv === 'production' || storedEnv === 'sandbox') setEnv(storedEnv);
+    const storedFormat = localStorage.getItem('fedex_label_format');
+    if (storedFormat === 'thermal' || storedFormat === 'laser') setLabelFormat(storedFormat);
   }, []);
 
   function toggleEnv(e: 'sandbox' | 'production') {
     setEnv(e);
     localStorage.setItem('fedex_env', e);
     window.dispatchEvent(new CustomEvent('envchange', { detail: e }));
+  }
+
+  function toggleLabelFormat(f: 'thermal' | 'laser') {
+    setLabelFormat(f);
+    localStorage.setItem('fedex_label_format', f);
+    window.dispatchEvent(new CustomEvent('labelformatchange', { detail: f }));
   }
 
   const firstName = user?.firstName || 'User';
@@ -92,6 +101,17 @@ export default function Sidebar() {
             ⚠ Pending FedEx Bar Code Analysis approval
           </div>
         )}
+      </div>
+
+      <div style={{ padding: '12px 2px 0' }}>
+        <div style={{ fontSize: 10, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Label Format</div>
+        <div className="env-pill">
+          <button className={labelFormat === 'thermal' ? 'on' : ''} onClick={() => toggleLabelFormat('thermal')} title="ZPL II — Zebra thermal printers">🖨 Thermal</button>
+          <button className={labelFormat === 'laser' ? 'on' : ''} onClick={() => toggleLabelFormat('laser')} title="PNG — laser printers">🖨 Laser</button>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--muted2)', marginTop: 6, lineHeight: 1.3 }}>
+          {labelFormat === 'thermal' ? 'ZPL II · Zebra / thermal' : 'PNG · Laser / inkjet'}
+        </div>
       </div>
 
       <div className="user-chip">

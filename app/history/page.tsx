@@ -64,11 +64,11 @@ export default async function HistoryPage() {
                     <td>
                       {s.label_b64 ? (
                         <a
-                          href={`data:image/png;base64,${s.label_b64}`}
-                          download={`label-${s.tracking}.png`}
+                          href={`data:application/x-zebra-zpl;charset=utf-8,${encodeURIComponent(s.label_b64)}`}
+                          download={`label-${s.tracking}.zpl`}
                           className="btn btn-ghost btn-sm"
                         >
-                          ⬇
+                          ⬇ .ZPL
                         </a>
                       ) : '—'}
                     </td>
